@@ -219,3 +219,5 @@ __marimo__/
 
 #dataset
 dataset/*
+drafts/*
+detection-by-shadow/*

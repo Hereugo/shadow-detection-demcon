@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrabantHack_26 · Detection By Shadow · DEMCON</title>
+  <style>
+    :root{
+      --bg:#0d2b22;
+      --panel:#0f352b;
+      --panel2:#0b241d;
+      --border: rgba(212,240,228,.18);
+      --text:#ffffff;
+      --muted:#d4f0e4;
+      --accent:#00e88f;
+      --warn:#ffb020;
+      --bad:#ff5b5b;
+      --good:#20f2a0;
+      --shadow: rgba(0,0,0,.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    *{ box-sizing:border-box; }
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1000px 600px at 20% -10%, rgba(0,232,143,.10), transparent 60%),
+                  radial-gradient(900px 700px at 110% 0%, rgba(0,232,143,.08), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      font-family: var(--sans);
+      letter-spacing: .2px;
+    }
+
+    .corner{
+      position: fixed;
+      width: 220px;
+      height: 220px;
+      pointer-events: none;
+      opacity: .55;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.25));
+    }
+    .corner.tl{ top:0; left:0; transform: translate(-16px,-16px); }
+    .corner.tr{ top:0; right:0; transform: translate(16px,-16px) scaleX(-1); }
+    .corner.bl{ bottom:0; left:0; transform: translate(-16px,16px) scaleY(-1); }
+    .corner.br{ bottom:0; right:0; transform: translate(16px,16px) scale(-1); }
+
+    header{
+      position: sticky;
+      top:0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(13,43,34,.86), rgba(13,43,34,.55));
+      border-bottom: 1px solid var(--border);
+    }
+    .wrap{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 16px;
+    }
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      line-height:1.1;
+    }
+    .brand .title{
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-size: 14px;
+    }
+    .brand .subtitle{
+      color: rgba(212,240,228,.86);
+      font-size: 12.5px;
+    }
+    .modePill{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .pill{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      padding: 10px 12px;
+      border:1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(15,53,43,.55);
+      box-shadow: 0 10px 18px var(--shadow);
+    }
+    .pill .dot{
+      width:10px;height:10px;border-radius:999px;background: var(--accent);
+      box-shadow: 0 0 18px rgba(0,232,143,.55);
+    }
+    .pill .label{
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      user-select:none;
+    }
+    .toggle{
+      border:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(0,232,143,.14), rgba(0,232,143,.06));
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+      box-shadow: 0 12px 22px rgba(0,0,0,.22);
+    }
+    .toggle:hover{
+      transform: translateY(-1px);
+      border-color: rgba(0,232,143,.45);
+      box-shadow: 0 16px 28px rgba(0,0,0,.26);
+    }
+    .toggle:active{ transform: translateY(0px) scale(.99); }
+
+    main .wrap{ padding-top: 16px; padding-bottom: 28px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border:1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(15,53,43,.72), rgba(11,36,29,.72));
+      box-shadow: 0 18px 40px rgba(0,0,0,.26);
+      overflow: clip;
+    }
+    .cardHeader{
+      padding: 14px 14px 10px 14px;
+      border-bottom: 1px solid rgba(212,240,228,.12);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:10px;
+    }
+    .cardHeader h2{
+      margin:0;
+      font-size: 13px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(212,240,228,.92);
+    }
+    .chip{
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(212,240,228,.86);
+      border:1px solid rgba(212,240,228,.16);
+      background: rgba(0,0,0,.12);
+      padding: 6px 8px;
+      border-radius: 999px;
+      user-select:none;
+    }
+    .cardBody{ padding: 14px; }
+
+    .drop{
+      border: 1px dashed rgba(0,232,143,.55);
+      border-radius: 16px;
+      background: rgba(0,232,143,.05);
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color .12s ease, transform .12s ease, background .12s ease;
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .drop:hover{
+      border-color: rgba(0,232,143,.90);
+      background: rgba(0,232,143,.08);
+      transform: translateY(-1px);
+    }
+    .drop.drag{
+      border-color: rgba(255,255,255,.70);
+      background: rgba(0,232,143,.12);
+    }
+    .dropRow{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .dropTitle{
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .dropHint{
+      font-size: 12px;
+      color: rgba(212,240,228,.86);
+    }
+    .btnSmall{
+      border:1px solid rgba(212,240,228,.18);
+      background: rgba(0,0,0,.14);
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    .btnSmall:hover{ border-color: rgba(0,232,143,.45); color: var(--text); }
+
+    .thumb{
+      width: 100%;
+      height: 240px;
+      border-radius: 14px;
+      border:1px solid rgba(212,240,228,.14);
+      background: rgba(0,0,0,.14);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      position: relative;
+    }
+    .thumb img{
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display:block;
+    }
+    .thumb .placeholder{
+      text-align:center;
+      padding: 18px;
+      color: rgba(212,240,228,.88);
+    }
+    .thumb .placeholder .big{
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .thumb .placeholder .small{
+      font-size: 12px;
+      line-height: 1.4;
+      opacity: .92;
+    }
+    .dimBadge{
+      position:absolute;
+      top:10px;
+      right:10px;
+      background: rgba(0,0,0,.35);
+      border:1px solid rgba(212,240,228,.16);
+      color: rgba(212,240,228,.92);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: 999px;
+    }
+
+    .twocol{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 980px){
+      .twocol{ grid-template-columns: 1fr; }
+    }
+    label{
+      display:block;
+      font-size: 12px;
+      color: rgba(212,240,228,.92);
+      margin-bottom: 8px;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+    }
+    textarea{
+      width:100%;
+      min-height: 140px;
+      resize: vertical;
+      border-radius: 14px;
+      border:1px solid rgba(212,240,228,.16);
+      background: rgba(0,0,0,.16);
+      color: var(--text);
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.35;
+      outline: none;
+    }
+    textarea:focus{
+      border-color: rgba(0,232,143,.55);
+      box-shadow: 0 0 0 4px rgba(0,232,143,.10);
+    }
+    .err{
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(255,91,91,.95);
+      display:none;
+    }
+    .err.show{ display:block; }
+
+    .ctaRow{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content: space-between;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .cta{
+      width:100%;
+      border: 1px solid rgba(0,232,143,.55);
+      background: linear-gradient(180deg, rgba(0,232,143,.22), rgba(0,232,143,.10));
+      color: var(--text);
+      padding: 14px 14px;
+      border-radius: 16px;
+      cursor:pointer;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+      box-shadow: 0 18px 40px rgba(0,0,0,.26);
+    }
+    .cta:hover{
+      transform: translateY(-1px);
+      border-color: rgba(0,232,143,.95);
+      box-shadow: 0 22px 48px rgba(0,0,0,.32);
+    }
+    .cta:active{ transform: translateY(0px) scale(.99); }
+    .cta.secondary{
+      border-color: rgba(212,240,228,.18);
+      background: rgba(0,0,0,.12);
+      letter-spacing: .10em;
+      font-weight: 800;
+    }
+
+    .fadeIn{
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .28s ease, transform .28s ease;
+    }
+    .fadeIn.show{
+      opacity: 1;
+      transform: translateY(0px);
+    }
+
+    .scoreGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+    @media (max-width: 980px){
+      .scoreGrid{ grid-template-columns: 1fr; }
+    }
+    .scoreBox{
+      border:1px solid rgba(212,240,228,.16);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(0,0,0,.14);
+    }
+    .scoreBox .k{
+      font-size: 12px;
+      color: rgba(212,240,228,.86);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 8px;
+    }
+    .scoreBox .v{
+      font-family: var(--mono);
+      font-size: 34px;
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: .02em;
+    }
+    .scoreBox .sub{
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(212,240,228,.86);
+    }
+    .scoreBox .v.bad{ color: var(--bad); }
+    .scoreBox .v.warn{ color: var(--warn); }
+    .scoreBox .v.good{ color: var(--good); }
+
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .mono{ font-family: var(--mono); }
+
+    canvas{
+      width:100%;
+      height:auto;
+      border-radius: 16px;
+      border: 1px solid rgba(212,240,228,.14);
+      background: rgba(0,0,0,.18);
+    }
+    .statsRow{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    @media (max-width: 980px){
+      .statsRow{ grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px){
+      .statsRow{ grid-template-columns: 1fr; }
+    }
+    .stat{
+      border:1px solid rgba(212,240,228,.14);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(0,0,0,.12);
+    }
+    .stat .k{
+      font-size: 11px;
+      color: rgba(212,240,228,.82);
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .stat .v{
+      font-family: var(--mono);
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    details{
+      border:1px solid rgba(212,240,228,.14);
+      border-radius: 16px;
+      background: rgba(0,0,0,.10);
+      padding: 12px 12px;
+    }
+    details summary{
+      cursor:pointer;
+      user-select:none;
+      font-weight: 900;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: rgba(212,240,228,.92);
+      outline: none;
+    }
+    details .how{
+      margin-top: 10px;
+      color: rgba(212,240,228,.92);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+    .how b{ color: #ffffff; }
+    .how code{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(212,240,228,.96);
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(212,240,228,.14);
+      padding: 1px 6px;
+      border-radius: 999px;
+    }
+    footer{
+      border-top:1px solid var(--border);
+      background: rgba(11,36,29,.55);
+      padding: 18px 16px;
+      color: rgba(212,240,228,.86);
+    }
+    footer .wrap{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 0;
+    }
+    .footLeft{ font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .footRight{ font-family: var(--mono); font-size: 12px; opacity: .9; }
+
+    .modeOnly{ display:none; }
+    .modeOnly.show{ display:block; }
+
+    .note{
+      font-size: 12px;
+      color: rgba(212,240,228,.86);
+      line-height: 1.5;
+    }
+    .kbd{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border:1px solid rgba(212,240,228,.18);
+      background: rgba(0,0,0,.18);
+      color: rgba(212,240,228,.92);
+    }
+
+    .bottomBar{
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid rgba(212,240,228,.12);
+      background: linear-gradient(180deg, rgba(0,0,0,.14), rgba(0,0,0,.08));
+      color: rgba(212,240,228,.88);
+      font-size: 12px;
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .bottomBar b{ color: #fff; }
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      background: rgba(0,0,0,.55);
+      border: 1px solid rgba(212,240,228,.18);
+      color: rgba(212,240,228,.96);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+      z-index: 50;
+    }
+    .toast.show{
+      opacity: 1;
+      transform: translateX(-50%) translateY(0px);
+    }
+  </style>
+</head>
+<body>
+  <!-- Decorative corners (triangles) -->
+  <svg class="corner tl" viewBox="0 0 220 220" aria-hidden="true">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#00e88f" stop-opacity=".28"/>
+        <stop offset=".7" stop-color="#00e88f" stop-opacity=".06"/>
+        <stop offset="1" stop-color="#00e88f" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="0,0 220,0 0,220" fill="url(#g)"/>
+    <polygon points="0,0 145,0 0,145" fill="rgba(0,232,143,.10)"/>
+    <polyline points="0,160 160,0" fill="none" stroke="rgba(212,240,228,.16)" stroke-width="2"/>
+    <polyline points="0,120 120,0" fill="none" stroke="rgba(212,240,228,.12)" stroke-width="2"/>
+  </svg>
+  <svg class="corner tr" viewBox="0 0 220 220" aria-hidden="true">
+    <polygon points="0,0 220,0 0,220" fill="url(#g)"/>
+    <polygon points="0,0 145,0 0,145" fill="rgba(0,232,143,.10)"/>
+    <polyline points="0,160 160,0" fill="none" stroke="rgba(212,240,228,.16)" stroke-width="2"/>
+    <polyline points="0,120 120,0" fill="none" stroke="rgba(212,240,228,.12)" stroke-width="2"/>
+  </svg>
+  <svg class="corner bl" viewBox="0 0 220 220" aria-hidden="true">
+    <polygon points="0,0 220,0 0,220" fill="url(#g)"/>
+    <polygon points="0,0 145,0 0,145" fill="rgba(0,232,143,.10)"/>
+    <polyline points="0,160 160,0" fill="none" stroke="rgba(212,240,228,.16)" stroke-width="2"/>
+    <polyline points="0,120 120,0" fill="none" stroke="rgba(212,240,228,.12)" stroke-width="2"/>
+  </svg>
+  <svg class="corner br" viewBox="0 0 220 220" aria-hidden="true">
+    <polygon points="0,0 220,0 0,220" fill="url(#g)"/>
+    <polygon points="0,0 145,0 0,145" fill="rgba(0,232,143,.10)"/>
+    <polyline points="0,160 160,0" fill="none" stroke="rgba(212,240,228,.16)" stroke-width="2"/>
+    <polyline points="0,120 120,0" fill="none" stroke="rgba(212,240,228,.12)" stroke-width="2"/>
+  </svg>
+
+  <header>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">BRABANTHACK_26 · DETECTION BY SHADOW · DEMCON</div>
+          <div class="subtitle">Single-file web demo — paste JSON, visualize off-screen bboxes, compute IoU score.</div>
+        </div>
+        <div class="modePill">
+          <div class="pill" id="modePill">
+            <div class="dot"></div>
+            <div class="label" id="modeLabel">Evaluation mode</div>
+          </div>
+          <button class="toggle" id="modeToggle" type="button" aria-label="Toggle mode">Switch to demo</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="grid">
+        <!-- Left: Inputs -->
+        <section class="card">
+          <div class="cardHeader">
+            <h2>Inputs</h2>
+            <div class="chip"><span class="mono">X</span> can be negative (off-screen)</div>
+          </div>
+          <div class="cardBody">
+            <input id="fileInput" type="file" accept="image/*" style="display:none" />
+            <div class="drop" id="dropZone" tabindex="0" role="button" aria-label="Upload image">
+              <div class="dropRow">
+                <div>
+                  <div class="dropTitle">Upload image</div>
+                  <div class="dropHint">Drag & drop or click. Works offline — just open <span class="kbd">demo.html</span>.</div>
+                </div>
+                <button class="btnSmall" id="btnPick" type="button">Choose file</button>
+              </div>
+              <div class="thumb" id="thumb">
+                <div class="placeholder" id="thumbPlaceholder">
+                  <div class="big">No image loaded</div>
+                  <div class="small">Default dimensions assumed: <span class="mono">720×480</span>. Upload an image to match real pixels.</div>
+                </div>
+                <img id="thumbImg" alt="" style="display:none" />
+                <div class="dimBadge" id="dimBadge" style="display:none"></div>
+              </div>
+            </div>
+
+            <!-- EVALUATION MODE inputs -->
+            <div class="modeOnly show" id="evalInputs" style="margin-top: 12px;">
+              <div class="twocol">
+                <div>
+                  <label for="predJsonEval">Predicted bbox</label>
+                  <textarea id="predJsonEval" spellcheck="false">{
+  "xmin": -228.8,
+  "ymin": 223.6,
+  "xmax": -110.6,
+  "ymax": 416.3,
+  "direction": 1
+}</textarea>
+                  <div class="err" id="predErrEval"></div>
+                </div>
+                <div>
+                  <label for="gtJsonEval">Ground Truth bbox</label>
+                  <textarea id="gtJsonEval" spellcheck="false">{
+  "xmin": -228.9,
+  "ymin": 223.6,
+  "xmax": -110.6,
+  "ymax": 416.4,
+  "direction": 1
+}</textarea>
+                  <div class="err" id="gtErrEval"></div>
+                </div>
+              </div>
+              <div class="ctaRow">
+                <button class="cta" id="btnScore" type="button">Calculate score</button>
+              </div>
+            </div>
+
+            <!-- DEMO MODE inputs -->
+            <div class="modeOnly" id="demoInputs" style="margin-top: 12px;">
+              <div>
+                <label for="predJsonDemo">Prediction JSON</label>
+                <textarea id="predJsonDemo" spellcheck="false">{
+  "xmin": -228.8,
+  "ymin": 223.6,
+  "xmax": -110.6,
+  "ymax": 416.3,
+  "direction": 1
+}</textarea>
+                <div class="err" id="predErrDemo"></div>
+              </div>
+              <div class="ctaRow">
+                <button class="cta" id="btnViz" type="button">Visualize</button>
+                <button class="cta secondary" id="btnDemoNoImage" type="button" title="Use placeholder dims 720x480">Use placeholder</button>
+              </div>
+              <div class="note" style="margin-top: 10px;">
+                Tip: direction <span class="kbd">1</span> means <b>into frame</b> (arrow points toward the image center). Direction <span class="kbd">0</span> means <b>out of frame</b>.
+              </div>
+            </div>
+
+            <div style="margin-top: 12px;">
+              <details>
+                <summary>How it works</summary>
+                <div class="how">
+                  We detect a pedestrian <b>without biometric data</b>, using the <b>shadow footprint</b> as a proxy geometry signal.
+                  The model predicts a bounding box that may be <b>off-screen</b> (negative or beyond the image width).
+                  <br><br>
+                  In evaluation mode we compute:
+                  <br>
+                  - <b>IoU</b> = intersection / union using raw pixel coordinates (including negatives).
+                  <br>
+                  - Direction bonus: <code>+0.05</code> if correct, <code>-0.05</code> if wrong, <code>0.00</code> if missing.
+                  <br><br>
+                  Render trick: the canvas is expanded by <b>300px on each side</b>. We shift all X coordinates by <code>+300</code> when drawing, so off-screen boxes remain visible.
+                </div>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: Output -->
+        <section class="card">
+          <div class="cardHeader">
+            <h2>Output</h2>
+            <div class="chip"><span class="mono">IoU</span> + direction bonus</div>
+          </div>
+          <div class="cardBody">
+            <!-- Evaluation results -->
+            <div class="modeOnly show" id="evalOutput">
+              <div id="results" class="fadeIn">
+                <div class="scoreGrid">
+                  <div class="scoreBox">
+                    <div class="k">IoU</div>
+                    <div class="v mono" id="iouV">0.000</div>
+                    <div class="sub" id="iouSub">Overlap of predicted vs ground truth.</div>
+                  </div>
+                  <div class="scoreBox">
+                    <div class="k">Direction bonus</div>
+                    <div class="v mono" id="dirV">0.00</div>
+                    <div class="sub" id="dirSub">Correct / wrong / abstain.</div>
+                  </div>
+                  <div class="scoreBox">
+                    <div class="k">Final score</div>
+                    <div class="v mono" id="finalV">0.000</div>
+                    <div class="sub row">
+                      <span id="finalSub">IoU + bonus</span>
+                      <button class="btnSmall" id="btnCopyScore" type="button">Copy</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top: 12px;">
+                  <canvas id="canvasEval"></canvas>
+                </div>
+                <div class="statsRow" id="statsRow">
+                  <div class="stat"><div class="k">Overlap area</div><div class="v" id="stInter">0 px^2</div></div>
+                  <div class="stat"><div class="k">GT area</div><div class="v" id="stGT">0 px^2</div></div>
+                  <div class="stat"><div class="k">Pred area</div><div class="v" id="stPred">0 px^2</div></div>
+                  <div class="stat"><div class="k">Union</div><div class="v" id="stUnion">0 px^2</div></div>
+                </div>
+
+                <div style="margin-top: 12px;" class="note" id="explainText">
+                  Your prediction is 0% accurate. The boxes overlap by 0 pixels in X direction.
+                </div>
+              </div>
+
+              <div class="note" style="margin-top: 10px;">
+                Paste JSON, upload an image, then press <b>CALCULATE SCORE</b>. All math is in original image pixels; the canvas only shifts X by <span class="mono">+300</span> for visibility.
+              </div>
+            </div>
+
+            <!-- Demo output -->
+            <div class="modeOnly" id="demoOutput">
+              <div id="demoViz" class="fadeIn">
+                <canvas id="canvasDemo"></canvas>
+                <div class="bottomBar">
+                  <div><b>Shadow-based detection</b> · Privacy-preserving · No biometric data</div>
+                  <div><b>GDPR compliant</b> · Off-screen bbox support</div>
+                </div>
+                <div class="note" style="margin-top: 10px;">
+                  <span class="mono">Tip:</span> This is built for live judging: fast, clean, offline. Use it as a visual story — <b>shadows -> geometry -> detection</b>.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="footLeft">BrabantHack_26 · High Tech Campus Eindhoven · April 10, 2026</div>
+      <div class="footRight">Open locally · No frameworks · One file</div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast">Copied</div>
+
+  <script>
+    const OFFSET_X = 300; // canvas shift for visibility
+    const DEFAULT_W = 720;
+    const DEFAULT_H = 480;
+
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      mode: "eval", // "eval" | "demo"
+      img: null,    // HTMLImageElement
+      imgURL: null, // object url
+      w: DEFAULT_W,
+      h: DEFAULT_H
+    };
+
+    function setToast(msg){
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      window.clearTimeout(setToast._tm);
+      setToast._tm = window.setTimeout(() => t.classList.remove("show"), 900);
+    }
+
+    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+    function parseBBoxJSON(text){
+      let obj;
+      try {
+        obj = JSON.parse(text);
+      } catch (e) {
+        return { ok:false, error:"Invalid JSON (cannot parse).", bbox:null };
+      }
+      const keys = ["xmin","ymin","xmax","ymax"];
+      for (const k of keys){
+        if (!(k in obj)) return { ok:false, error:`Missing key: "${k}"`, bbox:null };
+        const n = Number(obj[k]);
+        if (!Number.isFinite(n)) return { ok:false, error:`"${k}" must be a number.`, bbox:null };
+      }
+      let direction = null;
+      if ("direction" in obj){
+        const d = Number(obj.direction);
+        if (Number.isFinite(d) && (d === 0 || d === 1)) direction = d;
+        else return { ok:false, error:`"direction" must be 0 or 1 (or omit it).`, bbox:null };
+      }
+      return {
+        ok:true,
+        error:"",
+        bbox: {
+          xmin: Number(obj.xmin),
+          ymin: Number(obj.ymin),
+          xmax: Number(obj.xmax),
+          ymax: Number(obj.ymax),
+          direction
+        }
+      };
+    }
+
+    function normalizeRect(b){
+      const x0 = Math.min(b.xmin, b.xmax);
+      const x1 = Math.max(b.xmin, b.xmax);
+      const y0 = Math.min(b.ymin, b.ymax);
+      const y1 = Math.max(b.ymin, b.ymax);
+      return { x0, y0, x1, y1 };
+    }
+
+    function areaOf(r){
+      const w = Math.max(0, r.x1 - r.x0);
+      const h = Math.max(0, r.y1 - r.y0);
+      return w * h;
+    }
+
+    function intersectionRect(a, b){
+      const x0 = Math.max(a.x0, b.x0);
+      const y0 = Math.max(a.y0, b.y0);
+      const x1 = Math.min(a.x1, b.x1);
+      const y1 = Math.min(a.y1, b.y1);
+      return { x0, y0, x1, y1 };
+    }
+
+    function computeIoU(pred, gt){
+      const p = normalizeRect(pred);
+      const g = normalizeRect(gt);
+      const inter = intersectionRect(p, g);
+      const interA = areaOf(inter);
+      const pA = areaOf(p);
+      const gA = areaOf(g);
+      const unionA = Math.max(0, pA + gA - interA);
+      const iou = unionA > 0 ? (interA / unionA) : 0;
+      return { iou, interA, pA, gA, unionA, pRect:p, gRect:g, interRect:inter };
+    }
+
+    function directionBonus(predDir, gtDir){
+      // +0.05 / -0.05 / 0.00
+      if (predDir === null || predDir === undefined) return { bonus: 0, label: "abstain (missing)" };
+      if (gtDir === null || gtDir === undefined) return { bonus: 0, label: "abstain (no GT)" };
+      if (predDir === gtDir) return { bonus: 0.05, label: "correct (+0.05)" };
+      return { bonus: -0.05, label: "wrong (-0.05)" };
+    }
+
+    function scoreColorClass(iou){
+      if (iou < 0.3) return "bad";
+      if (iou < 0.6) return "warn";
+      return "good";
+    }
+
+    function ensureCanvasSize(canvas, w, h){
+      // Set internal pixel size to match for crisp drawing
+      canvas.width = Math.max(1, Math.floor(w));
+      canvas.height = Math.max(1, Math.floor(h));
+    }
+
+    function drawExpandedCanvas(canvas, img, pred, gt, opts){
+      const showGT = !!gt;
+      const w = state.w;
+      const h = state.h;
+      const totalW = w + 2 * OFFSET_X;
+      ensureCanvasSize(canvas, totalW, h);
+      const ctx = canvas.getContext("2d");
+
+      // Background
+      ctx.clearRect(0,0,totalW,h);
+      ctx.fillStyle = "#1b1f1e";
+      ctx.fillRect(0,0,totalW,h);
+
+      // Image (or placeholder)
+      if (img){
+        ctx.drawImage(img, OFFSET_X, 0, w, h);
+      } else {
+        // Placeholder "camera"
+        ctx.fillStyle = "#121716";
+        ctx.fillRect(OFFSET_X, 0, w, h);
+        ctx.fillStyle = "rgba(212,240,228,.85)";
+        ctx.font = "800 16px " + getComputedStyle(document.body).fontFamily;
+        ctx.fillText("NO IMAGE LOADED", OFFSET_X + 18, 36);
+        ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+        ctx.fillText("Using placeholder dimensions: " + w + "x" + h, OFFSET_X + 18, 58);
+      }
+
+      // Frame border + label
+      ctx.strokeStyle = "rgba(255,255,255,.75)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(OFFSET_X + 0.5, 0.5, w - 1, h - 1);
+      ctx.fillStyle = "rgba(212,240,228,.90)";
+      ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillText("CAMERA FRAME", OFFSET_X + 10, 20);
+
+      function drawRectRaw(rect, stroke, fill, label){
+        // rect in original coords. Shift X by OFFSET_X.
+        const x0 = rect.x0 + OFFSET_X;
+        const x1 = rect.x1 + OFFSET_X;
+        const y0 = rect.y0;
+        const y1 = rect.y1;
+        // normalize & clamp for visibility
+        const nx0 = clamp(Math.min(x0,x1), 0, totalW-1);
+        const nx1 = clamp(Math.max(x0,x1), 0, totalW-1);
+        const ny0 = clamp(Math.min(y0,y1), 0, h-1);
+        const ny1 = clamp(Math.max(y0,y1), 0, h-1);
+        if (fill){
+          ctx.fillStyle = fill;
+          ctx.fillRect(nx0, ny0, Math.max(0, nx1-nx0), Math.max(0, ny1-ny0));
+        }
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(nx0+0.5, ny0+0.5, Math.max(0, nx1-nx0), Math.max(0, ny1-ny0));
+        if (label){
+          ctx.fillStyle = stroke;
+          ctx.font = "900 12px " + getComputedStyle(document.body).fontFamily;
+          ctx.fillText(label, nx0, clamp(ny0 - 10, 14, h - 6));
+        }
+        return { nx0, ny0, nx1, ny1 };
+      }
+
+      const pRect = normalizeRect(pred);
+      const gRect = showGT ? normalizeRect(gt) : null;
+
+      // Overlap (yellow) under boxes
+      if (showGT){
+        const inter = intersectionRect(pRect, gRect);
+        const has = areaOf(inter) > 0;
+        if (has){
+          drawRectRaw(inter, "rgba(255,230,0,.0)", "rgba(255,230,0,.26)", null);
+        }
+      }
+
+      // Draw GT (red), Pred (green)
+      if (showGT){
+        drawRectRaw(gRect, "#ff4b4b", null, "GROUND TRUTH");
+      }
+      const predLabel = opts && opts.predLabel ? opts.predLabel : (state.mode === "demo" ? "PEDESTRIAN DETECTED" : "PREDICTED");
+      drawRectRaw(pRect, "#00e88f", null, predLabel);
+
+      // Direction arrow (yellow), demo mode emphasis
+      const cx = (pRect.x0 + pRect.x1)/2 + OFFSET_X;
+      const cy = (pRect.y0 + pRect.y1)/2;
+      const arrowLen = state.mode === "demo" ? 84 : 64;
+      const toCenter = (w/2 + OFFSET_X);
+      const isInto = pred.direction === 1;
+      // "Into frame" means arrow points toward the image center.
+      const dirSign = (toCenter >= cx) ? 1 : -1; // which way is center from bbox
+      const dx = isInto ? (dirSign * arrowLen) : (-dirSign * arrowLen);
+      const x2 = clamp(cx + dx, 8, (w + 2*OFFSET_X) - 8);
+      const y2 = clamp(cy, 10, h - 10);
+      const x1 = clamp(cx, 8, (w + 2*OFFSET_X) - 8);
+      const y1 = y2;
+
+      ctx.strokeStyle = "rgba(255,230,0,.92)";
+      ctx.lineWidth = state.mode === "demo" ? 6 : 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      // arrow head
+      const head = state.mode === "demo" ? 18 : 14;
+      ctx.fillStyle = "rgba(255,230,0,.92)";
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - Math.sign(dx || 1) * head, y2 - 10);
+      ctx.lineTo(x2 - Math.sign(dx || 1) * head, y2 + 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // Demo info card
+      if (state.mode === "demo"){
+        const cardW = 260;
+        const cardH = 72;
+        const pad = 12;
+        const x = 14;
+        const y = h - cardH - 14;
+        ctx.fillStyle = "rgba(0,0,0,.55)";
+        ctx.strokeStyle = "rgba(212,240,228,.18)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, x, y, cardW, cardH, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        const sun = estimateSunElevation(pred, w, h);
+        const shadowSide = (pred.direction === 1)
+          ? (cx < toCenter ? "left" : "right")
+          : (cx < toCenter ? "right" : "left");
+
+        ctx.fillStyle = "rgba(212,240,228,.92)";
+        ctx.font = "900 12px " + getComputedStyle(document.body).fontFamily;
+        ctx.fillText("GEOMETRY SNAPSHOT", x + pad, y + 22);
+        ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+        ctx.fillText("Sun elevation est.: " + sun.toFixed(1) + " deg", x + pad, y + 44);
+        ctx.fillText("Shadow side: " + shadowSide.toUpperCase(), x + pad, y + 62);
+      }
+    }
+
+    function roundRect(ctx, x, y, w, h, r){
+      const rr = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function estimateSunElevation(pred, w, h){
+      // A tiny "wow" metric for the demo. Not physically accurate — a stable heuristic.
+      // Use bbox height as a proxy (smaller bbox => farther => lower elevation).
+      const r = normalizeRect(pred);
+      const bh = Math.max(1, r.y1 - r.y0);
+      const norm = clamp(bh / h, 0.02, 0.95);
+      return clamp(65 * (1 - norm) + 10, 5, 75);
+    }
+
+    function updateThumb(){
+      const imgEl = $("thumbImg");
+      const ph = $("thumbPlaceholder");
+      const badge = $("dimBadge");
+      if (state.img){
+        imgEl.src = state.imgURL;
+        imgEl.style.display = "block";
+        ph.style.display = "none";
+        badge.style.display = "block";
+        badge.textContent = state.w + "x" + state.h;
+      } else {
+        imgEl.style.display = "none";
+        ph.style.display = "block";
+        badge.style.display = "none";
+      }
+    }
+
+    function setMode(mode){
+      state.mode = mode;
+      const isEval = mode === "eval";
+      $("evalInputs").classList.toggle("show", isEval);
+      $("demoInputs").classList.toggle("show", !isEval);
+      $("evalOutput").classList.toggle("show", isEval);
+      $("demoOutput").classList.toggle("show", !isEval);
+      $("modeLabel").textContent = isEval ? "Evaluation mode" : "Demo mode";
+      $("modeToggle").textContent = isEval ? "Switch to demo" : "Switch to evaluation";
+      // Reset animations
+      $("results").classList.remove("show");
+      $("demoViz").classList.remove("show");
+      if (!isEval){
+        // In demo mode, render a placeholder instantly (so it looks alive)
+        tryRenderDemo(false);
+      }
+    }
+
+    function setErr(el, msg){
+      el.textContent = msg || "";
+      el.classList.toggle("show", !!msg);
+    }
+
+    function tryRenderDemo(flash){
+      const predText = $("predJsonDemo").value.trim();
+      const parsed = parseBBoxJSON(predText);
+      if (!parsed.ok){
+        setErr($("predErrDemo"), parsed.error);
+        return false;
+      }
+      setErr($("predErrDemo"), "");
+      const canvas = $("canvasDemo");
+      drawExpandedCanvas(canvas, state.img, parsed.bbox, null, { predLabel: "PEDESTRIAN DETECTED" });
+      if (flash){
+        $("demoViz").classList.add("show");
+      } else {
+        // show without waiting
+        requestAnimationFrame(() => $("demoViz").classList.add("show"));
+      }
+      return true;
+    }
+
+    function calculateScore(){
+      const predText = $("predJsonEval").value.trim();
+      const gtText = $("gtJsonEval").value.trim();
+
+      const p = parseBBoxJSON(predText);
+      const g = parseBBoxJSON(gtText);
+      setErr($("predErrEval"), p.ok ? "" : p.error);
+      setErr($("gtErrEval"), g.ok ? "" : g.error);
+      if (!p.ok || !g.ok) return;
+
+      const m = computeIoU(p.bbox, g.bbox);
+      const dir = directionBonus(p.bbox.direction, g.bbox.direction);
+      const final = clamp(m.iou + dir.bonus, 0, 1.05);
+
+      // UI numbers
+      const iouStr = m.iou.toFixed(3);
+      const finalStr = final.toFixed(3);
+      $("iouV").textContent = iouStr;
+      $("dirV").textContent = (dir.bonus >= 0 ? "+" : "") + dir.bonus.toFixed(2);
+      $("finalV").textContent = finalStr;
+      $("dirSub").textContent = dir.label;
+
+      $("iouV").className = "v mono " + scoreColorClass(m.iou);
+      $("finalV").className = "v mono " + scoreColorClass(m.iou);
+
+      // Stats
+      $("stInter").textContent = Math.round(m.interA) + " px^2";
+      $("stGT").textContent = Math.round(m.gA) + " px^2";
+      $("stPred").textContent = Math.round(m.pA) + " px^2";
+      $("stUnion").textContent = Math.round(m.unionA) + " px^2";
+
+      // Explanation
+      const acc = Math.round(m.iou * 100);
+      const overlap = Math.round(m.interA);
+      const predCenter = (normalizeRect(p.bbox).x0 + normalizeRect(p.bbox).x1)/2;
+      const xDir = predCenter < (state.w/2) ? "left" : "right";
+      $("explainText").textContent =
+        `Your prediction is ${acc}% accurate. The boxes overlap by ${overlap} pixels in ${xDir} direction.`;
+
+      // Render canvas
+      drawExpandedCanvas($("canvasEval"), state.img, p.bbox, g.bbox, { predLabel: "PREDICTED" });
+
+      // Animate results panel in
+      requestAnimationFrame(() => $("results").classList.add("show"));
+    }
+
+    async function copyFinalScore(){
+      const txt = $("finalV").textContent;
+      try{
+        await navigator.clipboard.writeText(txt);
+        setToast("Copied final score: " + txt);
+      }catch(e){
+        setToast("Copy failed (browser blocked). Score: " + txt);
+      }
+    }
+
+    // Image loading
+    function revokeURL(){
+      if (state.imgURL){
+        URL.revokeObjectURL(state.imgURL);
+        state.imgURL = null;
+      }
+    }
+    function loadImageFromFile(file){
+      if (!file) return;
+      if (!file.type || !file.type.startsWith("image/")){
+        setToast("Not an image file.");
+        return;
+      }
+      revokeURL();
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        state.img = img;
+        state.imgURL = url;
+        state.w = img.naturalWidth || DEFAULT_W;
+        state.h = img.naturalHeight || DEFAULT_H;
+        updateThumb();
+        setToast("Loaded image: " + state.w + "x" + state.h);
+        if (state.mode === "demo"){
+          tryRenderDemo(false);
+        }
+      };
+      img.onerror = () => {
+        revokeURL();
+        setToast("Failed to load image.");
+      };
+      img.src = url;
+    }
+
+    // Wire UI
+    $("modeToggle").addEventListener("click", () => setMode(state.mode === "eval" ? "demo" : "eval"));
+    $("btnScore").addEventListener("click", calculateScore);
+    $("btnCopyScore").addEventListener("click", copyFinalScore);
+    $("btnViz").addEventListener("click", () => tryRenderDemo(true));
+    $("btnDemoNoImage").addEventListener("click", () => {
+      state.img = null;
+      revokeURL();
+      state.w = DEFAULT_W;
+      state.h = DEFAULT_H;
+      updateThumb();
+      tryRenderDemo(true);
+    });
+
+    $("btnPick").addEventListener("click", () => $("fileInput").click());
+    $("fileInput").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      loadImageFromFile(f);
+    });
+
+    const dz = $("dropZone");
+    dz.addEventListener("click", () => $("fileInput").click());
+    dz.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        $("fileInput").click();
+      }
+    });
+
+    function stop(e){ e.preventDefault(); e.stopPropagation(); }
+    ["dragenter","dragover"].forEach(ev => dz.addEventListener(ev, (e) => { stop(e); dz.classList.add("drag"); }));
+    ["dragleave","drop"].forEach(ev => dz.addEventListener(ev, (e) => { stop(e); dz.classList.remove("drag"); }));
+    dz.addEventListener("drop", (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      loadImageFromFile(f);
+    });
+
+    // Initialize
+    updateThumb();
+    setMode("eval");
+  </script>
+</body>
+</html>
