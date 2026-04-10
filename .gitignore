@@ -221,3 +221,11 @@ __marimo__/
 dataset/*
 drafts/*
 detection-by-shadow/*
+best_model.pth
+quick_model.pth
+*.pth
+detection-by-shadow/
+enriched_dataset/
+viz_output/
+viz_results/
+viz_shadow/
